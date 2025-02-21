@@ -1,3 +1,5 @@
+import { checkRateLimit } from './security';
+
 interface ChatMessage {
   role: "user" | "assistant";
   content: string;
@@ -9,6 +11,11 @@ export const sendChatMessage = async (
   provider: string
 ): Promise<string> => {
   try {
+    // Rate limit kontrolü
+    if (!checkRateLimit(provider)) {
+      throw new Error('Rate limit aşıldı. Lütfen bir süre bekleyin.');
+    }
+
     let response;
     
     switch (provider) {

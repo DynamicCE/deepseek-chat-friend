@@ -1,10 +1,12 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { getSecureApiKey, removeSecureApiKey } from '../utils/security';
 
 interface ApiKeyContextType {
   apiKey: string | null;
   provider: string;
-  setApiKey: (key: string) => void;
+  setApiKey: (key: string | null) => void;
   setProvider: (provider: string) => void;
+  clearApiKey: () => void;
 }
 
 const ApiKeyContext = createContext<ApiKeyContextType | undefined>(undefined);
@@ -13,8 +15,27 @@ export const ApiKeyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [provider, setProvider] = useState<string>('openai');
 
+  // Component mount olduğunda güvenli bir şekilde saklanan API key'i al
+  useEffect(() => {
+    const savedApiKey = getSecureApiKey(provider);
+    if (savedApiKey) {
+      setApiKey(savedApiKey);
+    }
+  }, [provider]);
+
+  const clearApiKey = () => {
+    setApiKey(null);
+    removeSecureApiKey(provider);
+  };
+
   return (
-    <ApiKeyContext.Provider value={{ apiKey, setApiKey, provider, setProvider }}>
+    <ApiKeyContext.Provider value={{ 
+      apiKey, 
+      setApiKey, 
+      provider, 
+      setProvider,
+      clearApiKey 
+    }}>
       {children}
     </ApiKeyContext.Provider>
   );

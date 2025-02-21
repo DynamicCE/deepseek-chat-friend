@@ -4,6 +4,7 @@ import { validateApiKey } from '../utils/openai';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { setSecureApiKey, checkRateLimit } from '../utils/security';
 
 interface ApiKeyFormProps {
   provider: 'openai' | 'anthropic' | 'deepseek';
@@ -20,14 +21,29 @@ export const ApiKeyForm: React.FC<ApiKeyFormProps> = ({ provider }) => {
     setIsLoading(true);
 
     try {
+      // Rate limit kontrolü
+      if (!checkRateLimit(provider)) {
+        toast({
+          variant: "destructive",
+          title: "Hata",
+          description: "Çok fazla istek gönderildi. Lütfen bir süre bekleyin.",
+        });
+        return;
+      }
+
       const isValid = await validateApiKey(inputKey, provider);
       if (isValid) {
+        // API key'i güvenli bir şekilde sakla
+        setSecureApiKey(provider, inputKey);
         setApiKey(inputKey);
-        localStorage.setItem(`${provider}-api-key`, inputKey);
+        
         toast({
           title: "Başarılı!",
-          description: "API anahtarı başarıyla kaydedildi.",
+          description: "API anahtarı güvenli bir şekilde kaydedildi.",
         });
+        
+        // Input alanını temizle
+        setInputKey('');
       } else {
         toast({
           variant: "destructive",
@@ -41,6 +57,7 @@ export const ApiKeyForm: React.FC<ApiKeyFormProps> = ({ provider }) => {
         title: "Hata",
         description: "API anahtarı doğrulanırken bir hata oluştu.",
       });
+      console.error('API key validation error:', error);
     } finally {
       setIsLoading(false);
     }
@@ -55,6 +72,7 @@ export const ApiKeyForm: React.FC<ApiKeyFormProps> = ({ provider }) => {
           onChange={(e) => setInputKey(e.target.value)}
           placeholder={`${provider.toUpperCase()} API Anahtarını Girin`}
           disabled={isLoading}
+          autoComplete="off"
         />
         <p className="text-sm text-gray-500">
           {provider === 'openai' && 'sk-... ile başlayan API anahtarınızı girin'}

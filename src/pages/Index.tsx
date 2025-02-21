@@ -8,6 +8,7 @@ import { ApiKeyForm } from '../components/ApiKeyForm';
 import { useApiKey } from '../contexts/ApiKeyContext';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { sendChatMessage } from '../utils/chat';
 
 interface Message {
   role: "user" | "assistant";
@@ -23,6 +24,7 @@ const Index = () => {
   const [isLoading, setIsLoading] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  const [selectedProvider, setSelectedProvider] = useState('openai');
 
   const scrollToBottom = () => {
     if (chatContainerRef.current) {
@@ -55,26 +57,8 @@ const Index = () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch("https://api.deepseek.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: "deepseek-chat",
-          messages: [{ role: "user", content: userMessage }],
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("API isteği başarısız oldu");
-      }
-
-      const data = await response.json();
-      const assistantMessage = data.choices[0].message.content;
-
-      setMessages((prev) => [...prev, { role: "assistant", content: assistantMessage }]);
+      const response = await sendChatMessage(userMessage, apiKey, selectedProvider);
+      setMessages((prev) => [...prev, { role: "assistant", content: response }]);
     } catch (error) {
       toast({
         variant: "destructive",
@@ -87,6 +71,10 @@ const Index = () => {
     }
   };
 
+  const handleProviderSelect = (provider: string) => {
+    setSelectedProvider(provider);
+  };
+
   if (!apiKey) {
     return (
       <div className="container mx-auto p-4">
@@ -96,7 +84,7 @@ const Index = () => {
             <p className="text-gray-600 mt-2">Başlamak için bir AI servisi seçin ve API anahtarınızı girin</p>
           </div>
 
-          <Tabs defaultValue="openai" className="w-full">
+          <Tabs defaultValue="openai" className="w-full" onValueChange={handleProviderSelect}>
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="openai">OpenAI</TabsTrigger>
               <TabsTrigger value="anthropic">Anthropic</TabsTrigger>

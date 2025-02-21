@@ -9,7 +9,7 @@ Modern ve kullanıcı dostu bir chat uygulaması. OpenAI, Anthropic ve DeepSeek 
   - Anthropic (Claude)
   - DeepSeek
 - Gerçek zamanlı sohbet arayüzü
-- Güvenli API key yönetimi
+- Güvenli API key yönetimi (tarayıcı üzerinden)
 - Modern ve responsive tasarım
 - Markdown desteği
 - Kolay kullanımlı arayüz
@@ -40,26 +40,15 @@ cd ai-chat-app
 # Bağımlılıkları yükleyin
 npm install
 
-# .env dosyasını oluşturun
-cp .env.example .env
-
 # Geliştirme sunucusunu başlatın
 npm run dev
-```
-
-## Yapılandırma
-
-`.env` dosyasında aşağıdaki değişkenleri ayarlayabilirsiniz:
-
-```env
-OPENAI_API_KEY=your-api-key-here
 ```
 
 ## Kullanım
 
 1. Uygulamayı başlatın
 2. İstediğiniz AI servisini seçin (OpenAI, Anthropic, DeepSeek)
-3. İlgili servisin API anahtarını girin
+3. İlgili servisin API anahtarını uygulama üzerinden girin
 4. Sohbete başlayın
 
 ## Geliştirme

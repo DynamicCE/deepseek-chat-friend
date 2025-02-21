@@ -17,6 +17,19 @@ interface Message {
 
 const API_KEY_STORAGE_KEY = "deepseek-api-key";
 
+const getProviderName = (provider: string): string => {
+  switch (provider) {
+    case 'openai':
+      return 'ChatGPT';
+    case 'anthropic':
+      return 'Claude';
+    case 'deepseek':
+      return 'DeepSeek';
+    default:
+      return 'AI Chat';
+  }
+};
+
 const Index = () => {
   const { apiKey } = useApiKey();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -141,7 +154,7 @@ const Index = () => {
   return (
     <div className="min-h-screen p-4 flex flex-col max-w-4xl mx-auto animate-fade-in">
       <header className="text-center mb-8">
-        <h1 className="text-2xl font-semibold">DeepSeek Chat</h1>
+        <h1 className="text-2xl font-semibold">{getProviderName(selectedProvider)} Chat</h1>
       </header>
 
       <div

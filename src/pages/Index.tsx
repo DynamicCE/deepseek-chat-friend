@@ -1,10 +1,13 @@
-
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Send } from "lucide-react";
+import { ApiKeyForm } from '../components/ApiKeyForm';
+import { useApiKey } from '../contexts/ApiKeyContext';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 interface Message {
   role: "user" | "assistant";
@@ -13,8 +16,8 @@ interface Message {
 
 const API_KEY_STORAGE_KEY = "deepseek-api-key";
 
-export default function Index() {
-  const [apiKey, setApiKey] = useState<string>(() => localStorage.getItem(API_KEY_STORAGE_KEY) || "");
+const Index = () => {
+  const { apiKey } = useApiKey();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -86,26 +89,62 @@ export default function Index() {
 
   if (!apiKey) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4">
-        <div className="w-full max-w-md space-y-8 animate-fade-up">
-          <div className="text-center">
-            <h2 className="text-3xl font-bold tracking-tight">DeepSeek Chat</h2>
-            <p className="mt-2 text-sm text-gray-600">
-              Başlamak için DeepSeek API anahtarınızı girin
-            </p>
+      <div className="container mx-auto p-4">
+        <div className="max-w-3xl mx-auto mt-10">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold">AI Chat Uygulaması</h1>
+            <p className="text-gray-600 mt-2">Başlamak için bir AI servisi seçin ve API anahtarınızı girin</p>
           </div>
-          <form onSubmit={handleApiKeySubmit} className="space-y-4">
-            <Input
-              type="password"
-              placeholder="API Anahtarı"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              className="block w-full"
-            />
-            <Button type="submit" className="w-full">
-              Başla
-            </Button>
-          </form>
+
+          <Tabs defaultValue="openai" className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="openai">OpenAI</TabsTrigger>
+              <TabsTrigger value="anthropic">Anthropic</TabsTrigger>
+              <TabsTrigger value="deepseek">DeepSeek</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="openai">
+              <Card>
+                <CardHeader>
+                  <CardTitle>OpenAI API</CardTitle>
+                  <CardDescription>
+                    OpenAI'nin güçlü dil modellerini kullanın
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ApiKeyForm provider="openai" />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="anthropic">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Anthropic API</CardTitle>
+                  <CardDescription>
+                    Anthropic'in AI modellerini kullanın
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ApiKeyForm provider="anthropic" />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="deepseek">
+              <Card>
+                <CardHeader>
+                  <CardTitle>DeepSeek API</CardTitle>
+                  <CardDescription>
+                    DeepSeek'in AI modellerini kullanın
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ApiKeyForm provider="deepseek" />
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     );
@@ -179,4 +218,6 @@ export default function Index() {
       </form>
     </div>
   );
-}
+};
+
+export default Index;

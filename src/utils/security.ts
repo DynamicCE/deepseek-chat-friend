@@ -1,6 +1,20 @@
 import CryptoJS from 'crypto-js';
 
-const ENCRYPTION_KEY = import.meta.env.VITE_ENCRYPTION_KEY || 'default-key-replace-in-production';
+// Test ortamında process.env kullanıyoruz, üretimde import.meta.env
+const getEncryptionKey = () => {
+  if (typeof process !== 'undefined' && process.env.NODE_ENV === 'test') {
+    return process.env.VITE_ENCRYPTION_KEY || 'test-encryption-key';
+  }
+  
+  if (typeof window !== 'undefined') {
+    // @ts-ignore
+    return window.env?.VITE_ENCRYPTION_KEY || 'default-key-replace-in-production';
+  }
+  
+  return 'default-key-replace-in-production';
+};
+
+const ENCRYPTION_KEY = getEncryptionKey();
 const SESSION_TIMEOUT = 24 * 60 * 60 * 1000; // 24 saat
 
 export const encryptApiKey = (apiKey: string): string => {

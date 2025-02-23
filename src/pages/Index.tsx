@@ -1,222 +1,188 @@
-import { useState, useRef, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { useToast } from "@/hooks/use-toast";
-import { Loader2, Send } from "lucide-react";
-import { ApiKeyForm } from '../components/ApiKeyForm';
-import { useApiKey } from '../contexts/ApiKeyContext';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { sendChatMessage } from '../utils/chat';
+import React, { useState } from 'react';
+import { Loader2, Send, Paperclip, ArrowUp, Globe, Key } from 'lucide-react';
 
-interface Message {
-  role: "user" | "assistant";
-  content: string;
-}
+type Provider = 'deepseek' | 'openai' | 'anthropic';
 
-const API_KEY_STORAGE_KEY = "deepseek-api-key";
-
-const getProviderName = (provider: string): string => {
-  switch (provider) {
-    case 'openai':
-      return 'ChatGPT';
-    case 'anthropic':
-      return 'Claude';
-    case 'deepseek':
-      return 'DeepSeek';
-    default:
-      return 'AI Chat';
+const providerInfo = {
+  deepseek: {
+    name: 'DeepSeek',
+    logo: '/deepseek-color.svg',
+  },
+  openai: {
+    name: 'ChatGPT',
+    logo: '/openailogo.jpg',
+  },
+  anthropic: {
+    name: 'Claude',
+    logo: '/claudelogo.png',
   }
 };
 
 const Index = () => {
-  const { apiKey } = useApiKey();
-  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const chatContainerRef = useRef<HTMLDivElement>(null);
-  const { toast } = useToast();
-  const [selectedProvider, setSelectedProvider] = useState('openai');
+  const [selectedButton, setSelectedButton] = useState<string | null>(null);
+  const [selectedProvider, setSelectedProvider] = useState<Provider>('deepseek');
+  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+  const [apiKey, setApiKey] = useState("");
 
-  const scrollToBottom = () => {
-    if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
-    }
+  const handleSendMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim()) return;
+    
+    setIsLoading(true);
+    // API simulation
+    setTimeout(() => {
+      setIsLoading(false);
+      setInput('');
+    }, 1000);
   };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
 
   const handleApiKeySubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (apiKey.trim()) {
-      localStorage.setItem(API_KEY_STORAGE_KEY, apiKey);
-      toast({
-        title: "API Anahtarı kaydedildi",
-        description: "Artık sohbete başlayabilirsiniz.",
-      });
+      // API key'i kaydet
+      localStorage.setItem('api_key', apiKey);
+      setShowApiKeyModal(false);
     }
   };
-
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || !apiKey || isLoading) return;
-
-    const userMessage = input.trim();
-    setInput("");
-    setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
-    setIsLoading(true);
-
-    try {
-      const response = await sendChatMessage(userMessage, apiKey, selectedProvider);
-      setMessages((prev) => [...prev, { role: "assistant", content: response }]);
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Hata",
-        description: "Mesaj gönderilirken bir hata oluştu. Lütfen API anahtarınızı kontrol edin.",
-      });
-      console.error("Error:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleProviderSelect = (provider: string) => {
-    setSelectedProvider(provider);
-  };
-
-  if (!apiKey) {
-    return (
-      <div className="container mx-auto p-4">
-        <div className="max-w-3xl mx-auto mt-10">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold">AI Chat Uygulaması</h1>
-            <p className="text-gray-600 mt-2">Başlamak için bir AI servisi seçin ve API anahtarınızı girin</p>
-          </div>
-
-          <Tabs defaultValue="openai" className="w-full" onValueChange={handleProviderSelect}>
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="openai">OpenAI</TabsTrigger>
-              <TabsTrigger value="anthropic">Anthropic</TabsTrigger>
-              <TabsTrigger value="deepseek">DeepSeek</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="openai">
-              <Card>
-                <CardHeader>
-                  <CardTitle>OpenAI API</CardTitle>
-                  <CardDescription>
-                    OpenAI'nin güçlü dil modellerini kullanın
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ApiKeyForm provider="openai" />
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="anthropic">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Anthropic API</CardTitle>
-                  <CardDescription>
-                    Anthropic'in AI modellerini kullanın
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ApiKeyForm provider="anthropic" />
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="deepseek">
-              <Card>
-                <CardHeader>
-                  <CardTitle>DeepSeek API</CardTitle>
-                  <CardDescription>
-                    DeepSeek'in AI modellerini kullanın
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ApiKeyForm provider="deepseek" />
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <div className="min-h-screen p-4 flex flex-col max-w-4xl mx-auto animate-fade-in">
-      <header className="text-center mb-8">
-        <h1 className="text-2xl font-semibold">{getProviderName(selectedProvider)} Chat</h1>
-      </header>
-
-      <div
-        ref={chatContainerRef}
-        className="chat-container flex-1 overflow-y-auto space-y-4 mb-4 rounded-lg bg-chat-100 p-4"
-      >
-        {messages.map((message, index) => (
-          <div
-            key={index}
-            className={`message flex ${
-              message.role === "user" ? "justify-end" : "justify-start"
-            }`}
+    <div className="min-h-screen bg-[#1C1C1E] flex items-center justify-center p-4">
+      <div className="w-full max-w-[800px]">
+        <div className="flex justify-end mb-4">
+          <button
+            onClick={() => setShowApiKeyModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-[#2C2C2E] rounded-full text-xs text-gray-300 hover:text-white transition-all animate-pulse hover:animate-none"
           >
-            <div
-              className={`max-w-[80%] rounded-lg p-4 ${
-                message.role === "user"
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-white shadow-sm"
+            <Key className="w-3.5 h-3.5" />
+            API Anahtarı Ekle
+          </button>
+        </div>
+
+        <div className="flex items-center justify-center gap-4 mb-8">
+          {(Object.entries(providerInfo) as [Provider, typeof providerInfo.deepseek][]).map(([provider, info]) => (
+            <button
+              key={provider}
+              onClick={() => setSelectedProvider(provider)}
+              className={`p-2 rounded-lg transition-all ${
+                selectedProvider === provider 
+                  ? 'bg-[#2C2C2E] scale-110' 
+                  : 'opacity-50 hover:opacity-75'
               }`}
             >
-              <p className="whitespace-pre-wrap">{message.content}</p>
-            </div>
-          </div>
-        ))}
-        {isLoading && (
-          <div className="flex justify-start">
-            <div className="bg-white rounded-lg p-4 shadow-sm">
-              <div className="typing-indicator">
-                <span className="typing-dot"></span>
-                <span className="typing-dot"></span>
-                <span className="typing-dot"></span>
-              </div>
+              <img src={info.logo} alt={info.name} className="w-8 h-8" />
+            </button>
+          ))}
+        </div>
+
+        {showApiKeyModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-[#2C2C2E] rounded-xl p-6 w-full max-w-md">
+              <h2 className="text-lg text-white mb-4">API Anahtarı Girin</h2>
+              <form onSubmit={handleApiKeySubmit}>
+                <input
+                  type="password"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder="API Anahtarınızı buraya yapıştırın"
+                  className="w-full bg-[#1C1C1E] text-white placeholder-gray-500 border-none rounded-lg p-3 mb-4 text-sm"
+                />
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowApiKeyModal(false)}
+                    className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
+                  >
+                    İptal
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!apiKey.trim()}
+                    className="px-4 py-2 bg-[#4B4BF7] text-white rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Kaydet
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}
-      </div>
 
-      <form onSubmit={handleSendMessage} className="flex gap-2">
-        <Textarea
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Mesajınızı yazın..."
-          className="flex-1 min-h-[50px] max-h-[200px]"
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              handleSendMessage(e);
-            }
-          }}
-        />
-        <Button
-          type="submit"
-          disabled={isLoading || !input.trim()}
-          className="px-8"
-        >
-          {isLoading ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Send className="w-4 h-4" />
-          )}
-        </Button>
-      </form>
+        <div className="text-center mb-6 flex items-center justify-center gap-3">
+          <img src={providerInfo[selectedProvider].logo} alt={providerInfo[selectedProvider].name} className="w-10 h-10" />
+          <h1 className="text-xl text-white">Merhaba, ben {providerInfo[selectedProvider].name}.</h1>
+        </div>
+        <p className="text-sm text-gray-400 text-center mb-6">Size bugün nasıl yardımcı olabilirim?</p>
+
+        <div className="bg-[#2C2C2E] rounded-xl p-3">
+          <form 
+            onSubmit={handleSendMessage} 
+            className="relative"
+          >
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder={`${providerInfo[selectedProvider].name}'a mesaj gönder`}
+              className="w-full bg-transparent text-white placeholder-gray-500 border-none outline-none resize-none min-h-[40px] max-h-[80px] p-1 text-sm"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSendMessage(e);
+                }
+              }}
+            />
+          </form>
+
+          <div className="flex items-center justify-between mt-2">
+            <div className="flex gap-1.5">
+              <button 
+                onClick={() => setSelectedButton(selectedButton === 'deepthink' ? null : 'deepthink')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-colors text-xs
+                  ${selectedButton === 'deepthink' 
+                    ? 'bg-[#4B4BF7] text-white hover:bg-[#3939E9]' 
+                    : 'bg-[#3C3C3E] text-gray-300 hover:text-white hover:bg-[#4C4C4E]'}`}
+              >
+                <div className="w-3.5 h-3.5 relative">
+                  <div className="absolute inset-0 border-[1.5px] border-current rounded-sm"></div>
+                  <div className="absolute inset-[2px] border-[1.5px] border-current rounded-sm"></div>
+                </div>
+                DeepThink (R1)
+              </button>
+              <button 
+                onClick={() => setSelectedButton(selectedButton === 'search' ? null : 'search')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-colors text-xs
+                  ${selectedButton === 'search' 
+                    ? 'bg-[#4B4BF7] text-white hover:bg-[#3939E9]' 
+                    : 'bg-[#3C3C3E] text-gray-300 hover:text-white hover:bg-[#4C4C4E]'}`}
+              >
+                <Globe className="w-3.5 h-3.5" />
+                Ara
+              </button>
+            </div>
+            
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                className="p-1.5 text-gray-400 hover:text-white rounded-full hover:bg-[#3C3C3E] transition-colors"
+              >
+                <Paperclip className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={handleSendMessage}
+                disabled={isLoading || !input.trim()}
+                className="p-1.5 text-gray-400 hover:text-white rounded-full hover:bg-[#3C3C3E] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <ArrowUp className="w-3.5 h-3.5" />
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

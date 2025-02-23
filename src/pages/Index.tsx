@@ -1,7 +1,12 @@
-import React, { useState } from 'react';
-import { Loader2, Send, Paperclip, ArrowUp, Globe, Key } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Loader2, Paperclip, ArrowUp, Globe, Key } from 'lucide-react';
 
 type Provider = 'deepseek' | 'openai' | 'anthropic';
+
+interface Message {
+  role: 'user' | 'assistant';
+  content: string;
+}
 
 const providerInfo = {
   deepseek: {
@@ -24,39 +29,141 @@ const Index = () => {
   const [selectedButton, setSelectedButton] = useState<string | null>(null);
   const [selectedProvider, setSelectedProvider] = useState<Provider>('deepseek');
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
-  const [apiKey, setApiKey] = useState("");
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  
+  // WeakMap kullanarak API key'i daha güvenli saklayalım
+  const apiKeyStorage = React.useRef(new WeakMap());
+  const apiKeyToken = React.useRef<{}>();
 
-  const handleSendMessage = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim()) return;
-    
-    setIsLoading(true);
-    // API simulation
-    setTimeout(() => {
-      setIsLoading(false);
-      setInput('');
-    }, 1000);
-  };
-
-  const handleApiKeySubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (apiKey.trim()) {
-      // API key'i kaydet
-      localStorage.setItem('api_key', apiKey);
-      setShowApiKeyModal(false);
+  const setTempApiKey = (key: string | null) => {
+    if (key) {
+      apiKeyToken.current = {};
+      apiKeyStorage.current.set(apiKeyToken.current, key);
+    } else {
+      apiKeyToken.current = undefined;
     }
   };
+
+  const getTempApiKey = (): string | null => {
+    if (!apiKeyToken.current) return null;
+    return apiKeyStorage.current.get(apiKeyToken.current) || null;
+  };
+
+  // Otomatik temizleme için cleanup effect
+  useEffect(() => {
+    return () => {
+      setTempApiKey(null);
+      apiKeyStorage.current = new WeakMap();
+    };
+  }, []);
+
+  const handleApiKeySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    
+    const form = e.currentTarget as HTMLFormElement;
+    const key = form.elements.namedItem('apiKey') as HTMLInputElement;
+    const apiKeyValue = key.value.trim();
+    
+    if (!apiKeyValue) {
+      setError('API anahtarı boş olamaz');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      await fetch('/api/validate-api-key', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          key: apiKeyValue,
+          provider: selectedProvider
+        })
+      });
+      
+      setTempApiKey(apiKeyValue);
+      form.reset(); // Form'u temizle
+      setShowApiKeyModal(false);
+      setSuccess(`${providerInfo[selectedProvider].name} API anahtarı doğrulandı! Oturum boyunca kullanabilirsiniz.`);
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (error) {
+      console.error('Validation error:', error);
+      setError('API anahtarı geçersiz veya API servisine ulaşılamıyor. Lütfen kontrol edip tekrar deneyin.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || isLoading) return;
+    
+    const userMessage = input.trim();
+    setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
+    setInput('');
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: userMessage,
+          provider: selectedProvider
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'API yanıt vermedi');
+      }
+
+      const data = await response.json();
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: data.content 
+      }]);
+    } catch (error) {
+      console.error('Chat error:', error);
+      setError(error instanceof Error ? error.message : 'Bir hata oluştu');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Provider değiştiğinde API key'i sıfırla
+  useEffect(() => {
+    setTempApiKey(null);
+    setShowApiKeyModal(true);
+  }, [selectedProvider]);
 
   return (
     <div className="min-h-screen bg-[#1C1C1E] flex items-center justify-center p-4">
       <div className="w-full max-w-[800px]">
+        {error && (
+          <div className="bg-red-500 bg-opacity-10 border border-red-500 text-red-500 px-4 py-2 rounded-lg mb-4">
+            {error}
+          </div>
+        )}
+        {success && (
+          <div className="bg-green-500 bg-opacity-10 border border-green-500 text-green-500 px-4 py-2 rounded-lg mb-4">
+            {success}
+          </div>
+        )}
         <div className="flex justify-end mb-4">
           <button
             onClick={() => setShowApiKeyModal(true)}
             className="flex items-center gap-2 px-4 py-2 bg-[#2C2C2E] rounded-full text-xs text-gray-300 hover:text-white transition-all animate-pulse hover:animate-none"
           >
             <Key className="w-3.5 h-3.5" />
-            API Anahtarı Ekle
+            {providerInfo[selectedProvider].name} API Anahtarı Ekle
           </button>
         </div>
 
@@ -79,13 +186,23 @@ const Index = () => {
         {showApiKeyModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-[#2C2C2E] rounded-xl p-6 w-full max-w-md">
-              <h2 className="text-lg text-white mb-4">API Anahtarı Girin</h2>
+              <h2 className="text-lg text-white mb-2">
+                {providerInfo[selectedProvider].name} API Anahtarı Girin
+              </h2>
+              <p className="text-sm text-gray-400 mb-4">
+                API anahtarınız sadece bu oturum için geçici olarak kullanılacak ve hiçbir yerde saklanmayacaktır.
+              </p>
+              {error && (
+                <div className="bg-red-500 bg-opacity-10 border border-red-500 text-red-500 px-3 py-2 rounded-lg mb-4 text-sm">
+                  {error}
+                </div>
+              )}
               <form onSubmit={handleApiKeySubmit}>
                 <input
+                  name="apiKey"
                   type="password"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="API Anahtarınızı buraya yapıştırın"
+                  defaultValue=""
+                  placeholder={`${providerInfo[selectedProvider].name} API Anahtarı`}
                   className="w-full bg-[#1C1C1E] text-white placeholder-gray-500 border-none rounded-lg p-3 mb-4 text-sm"
                 />
                 <div className="flex justify-end gap-2">
@@ -98,8 +215,7 @@ const Index = () => {
                   </button>
                   <button
                     type="submit"
-                    disabled={!apiKey.trim()}
-                    className="px-4 py-2 bg-[#4B4BF7] text-white rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-4 py-2 bg-[#4B4BF7] text-white rounded-lg text-sm"
                   >
                     Kaydet
                   </button>
@@ -116,6 +232,33 @@ const Index = () => {
         <p className="text-sm text-gray-400 text-center mb-6">Size bugün nasıl yardımcı olabilirim?</p>
 
         <div className="bg-[#2C2C2E] rounded-xl p-3">
+          {/* Mesaj Geçmişi */}
+          <div className="space-y-4 mb-4 max-h-[400px] overflow-y-auto">
+            {messages.map((message, index) => (
+              <div
+                key={index}
+                className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
+                <div
+                  className={`max-w-[80%] rounded-lg p-3 ${
+                    message.role === 'user'
+                      ? 'bg-[#4B4BF7] text-white'
+                      : 'bg-[#3C3C3E] text-gray-100'
+                  }`}
+                >
+                  {message.content}
+                </div>
+              </div>
+            ))}
+            {isLoading && (
+              <div className="flex justify-start">
+                <div className="bg-[#3C3C3E] rounded-lg p-3">
+                  <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+                </div>
+              </div>
+            )}
+          </div>
+
           <form 
             onSubmit={handleSendMessage} 
             className="relative"

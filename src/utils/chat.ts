@@ -1,64 +1,133 @@
-import { checkRateLimit } from './security';
+import { encryptMessage, decryptMessage } from './security';
 
-interface ChatMessage {
-  role: "user" | "assistant";
-  content: string;
-}
+type Provider = 'deepseek' | 'openai' | 'anthropic';
+
+const API_ENDPOINTS = {
+  deepseek: 'https://api.deepseek.com/v1/chat/completions',
+  openai: 'https://api.openai.com/v1/chat/completions',
+  anthropic: 'https://api.anthropic.com/v1/messages'
+};
+
+const MODELS = {
+  deepseek: 'deepseek-chat',
+  openai: 'gpt-3.5-turbo',
+  anthropic: 'claude-2'
+};
+
+const HEADERS = {
+  deepseek: (apiKey: string) => ({
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${apiKey}`
+  }),
+  openai: (apiKey: string) => ({
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${apiKey}`
+  }),
+  anthropic: (apiKey: string) => ({
+    'Content-Type': 'application/json',
+    'x-api-key': apiKey,
+    'anthropic-version': '2023-06-01'
+  })
+};
+
+const formatRequestBody = (provider: Provider, content: string) => {
+  switch (provider) {
+    case 'anthropic':
+      return {
+        model: MODELS[provider],
+        messages: [{ role: 'user', content }],
+        max_tokens: 1000
+      };
+    default:
+      return {
+        model: MODELS[provider],
+        messages: [{ role: 'user', content }],
+        temperature: 0.7
+      };
+  }
+};
+
+const parseResponse = async (provider: Provider, response: Response) => {
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'API yanıt vermedi' }));
+    throw new Error(error.error || `HTTP error! status: ${response.status}`);
+  }
+
+  const data = await response.json();
+  
+  switch (provider) {
+    case 'anthropic':
+      return data.content[0].text;
+    default:
+      return data.choices[0].message.content;
+  }
+};
 
 export const sendChatMessage = async (
-  message: string, 
-  apiKey: string, 
-  provider: string
+  message: string,
+  apiKey: string,
+  provider: Provider
 ): Promise<string> => {
   try {
-    // Rate limit kontrolü
-    if (!checkRateLimit(provider)) {
-      throw new Error('Rate limit aşıldı. Lütfen bir süre bekleyin.');
-    }
-
+    console.log(`Sending message to ${provider} API...`);
+    
     let response;
     
-    switch (provider) {
-      case 'openai':
-        response = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'gpt-3.5-turbo',
-            messages: [{ role: 'user', content: message }],
-          }),
-        });
-        const openaiData = await response.json();
-        return openaiData.choices[0].message.content;
+    if (provider === 'openai') {
+      response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: 'gpt-3.5-turbo',
+          messages: [{ role: 'user', content: message }]
+        })
+      });
+    } else if (provider === 'anthropic') {
+      response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: 'claude-2',
+          messages: [{ role: 'user', content: message }]
+        })
+      });
+    } else {
+      response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: 'deepseek-chat',
+          messages: [{ role: 'user', content: message }]
+        })
+      });
+    }
 
-      case 'anthropic':
-        response = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'x-api-key': apiKey,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'claude-3-opus-20240229',
-            messages: [{ role: 'user', content: message }],
-          }),
-        });
-        const anthropicData = await response.json();
-        return anthropicData.content;
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'API yanıt vermedi' }));
+      console.error('API Error Response:', errorData);
+      throw new Error(errorData.error?.message || errorData.error || `HTTP error! status: ${response.status}`);
+    }
 
-      case 'deepseek':
-        // DeepSeek için doğru endpoint ve istek formatını kullanacağız
-        // Not: Bu bilgileri DeepSeek'in API dokümantasyonundan almalısınız
-        return "DeepSeek API henüz entegre edilmedi.";
+    const data = await response.json();
+    console.log('API Response:', data);
 
-      default:
-        throw new Error('Desteklenmeyen provider');
+    if (provider === 'anthropic') {
+      return data.content[0].text;
+    } else {
+      return data.choices[0].message.content;
     }
   } catch (error) {
-    console.error('Chat error:', error);
+    console.error(`${provider} API Error:`, error);
     throw error;
   }
 }; 

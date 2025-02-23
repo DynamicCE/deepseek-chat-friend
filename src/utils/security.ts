@@ -1,4 +1,4 @@
-import CryptoJS from 'crypto-js';
+import crypto from 'crypto';
 
 // Test ortamında process.env kullanıyoruz, üretimde import.meta.env
 const getEncryptionKey = () => {
@@ -16,35 +16,51 @@ const getEncryptionKey = () => {
 
 const ENCRYPTION_KEY = getEncryptionKey();
 const SESSION_TIMEOUT = 24 * 60 * 60 * 1000; // 24 saat
+const IV_LENGTH = 16;
 
-export const encryptApiKey = (apiKey: string): string => {
-  return CryptoJS.AES.encrypt(apiKey, ENCRYPTION_KEY).toString();
+export const encryptMessage = (text: string): string => {
+  const iv = crypto.randomBytes(IV_LENGTH);
+  const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);
+  let encrypted = cipher.update(text);
+  encrypted = Buffer.concat([encrypted, cipher.final()]);
+  return iv.toString('hex') + ':' + encrypted.toString('hex');
 };
 
-export const decryptApiKey = (encryptedApiKey: string): string => {
-  const bytes = CryptoJS.AES.decrypt(encryptedApiKey, ENCRYPTION_KEY);
-  return bytes.toString(CryptoJS.enc.Utf8);
+export const decryptMessage = (text: string): string => {
+  const textParts = text.split(':');
+  const iv = Buffer.from(textParts.shift()!, 'hex');
+  const encryptedText = Buffer.from(textParts.join(':'), 'hex');
+  const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);
+  let decrypted = decipher.update(encryptedText);
+  decrypted = Buffer.concat([decrypted, decipher.final()]);
+  return decrypted.toString();
 };
 
 export const setSecureApiKey = (provider: string, apiKey: string): void => {
-  const encryptedKey = encryptApiKey(apiKey);
-  const expirationDate = new Date(Date.now() + SESSION_TIMEOUT);
-  
-  document.cookie = `${provider}-api-key=${encryptedKey}; expires=${expirationDate.toUTCString()}; path=/; secure; samesite=strict; httponly`;
+  try {
+    const encryptedKey = encryptMessage(apiKey);
+    sessionStorage.setItem(`${provider}_api_key`, encryptedKey);
+  } catch (error) {
+    console.error('API key kaydetme hatası:', error);
+  }
 };
 
 export const getSecureApiKey = (provider: string): string | null => {
-  const cookies = document.cookie.split(';');
-  const cookie = cookies.find(c => c.trim().startsWith(`${provider}-api-key=`));
-  
-  if (!cookie) return null;
-  
-  const encryptedKey = cookie.split('=')[1];
-  return decryptApiKey(encryptedKey);
+  try {
+    const encryptedKey = sessionStorage.getItem(`${provider}_api_key`);
+    return encryptedKey ? decryptMessage(encryptedKey) : null;
+  } catch (error) {
+    console.error('API key okuma hatası:', error);
+    return null;
+  }
 };
 
 export const removeSecureApiKey = (provider: string): void => {
-  document.cookie = `${provider}-api-key=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; secure; samesite=strict; httponly`;
+  try {
+    sessionStorage.removeItem(`${provider}_api_key`);
+  } catch (error) {
+    console.error('API key silme hatası:', error);
+  }
 };
 
 // Rate limiting için basit bir implementasyon

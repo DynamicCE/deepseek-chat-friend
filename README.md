@@ -1,6 +1,56 @@
-# AI Chat Uygulaması
+# AI Chat Application
 
-Modern ve kullanıcı dostu bir chat uygulaması. OpenAI, Anthropic ve DeepSeek API'lerini destekler.
+Bu uygulama DeepSeek, OpenAI ve Anthropic API'lerini kullanarak bir chat uygulamasıdır.
+
+## Güvenlik Uyarıları
+
+⚠️ **ÖNEMLİ: API Anahtarı Güvenliği**
+
+- `.env` dosyası asla GitHub'a push edilmemelidir
+- API anahtarlarınızı asla public repolarda paylaşmayın
+- Commit geçmişinde API anahtarı olmadığından emin olun
+
+## Kurulum
+
+1. Repoyu klonlayın
+2. `.env.example` dosyasını `.env` olarak kopyalayın
+3. `.env` dosyasına kendi API anahtarlarınızı ekleyin
+4. Bağımlılıkları yükleyin:
+   ```bash
+   npm install
+   ```
+5. Uygulamayı başlatın:
+   ```bash
+   npm run dev
+   ```
+
+## Environment Variables
+
+Aşağıdaki environment variable'ları `.env` dosyanızda tanımlamanız gerekiyor:
+
+```plaintext
+OPENAI_API_KEY=your-openai-api-key
+ANTHROPIC_API_KEY=your-anthropic-api-key
+DEEPSEEK_API_KEY=your-deepseek-api-key
+```
+
+## Deployment
+
+Uygulamayı deploy ederken:
+
+1. Environment variable'ları hosting platformunuzda (Vercel, Netlify vb.) ayarlayın
+2. API anahtarlarını güvenli bir şekilde saklayın
+3. Rate limiting ayarlarını production için güncelleyin
+
+## Güvenlik Kontrol Listesi
+
+Deploy etmeden önce:
+
+- [ ] `.env` dosyası `.gitignore`'da
+- [ ] Commit geçmişinde API anahtarı yok
+- [ ] Environment variable'lar hosting platformunda ayarlı
+- [ ] Rate limiting aktif
+- [ ] Error handling ve logging yapılandırıldı
 
 ## Özellikler
 
@@ -20,29 +70,6 @@ Modern ve kullanıcı dostu bir chat uygulaması. OpenAI, Anthropic ve DeepSeek 
 - TypeScript
 - Tailwind CSS
 - shadcn/ui
-
-## Başlangıç
-
-### Gereksinimler
-
-- Node.js (v18+)
-- npm veya yarn
-
-### Kurulum
-
-```bash
-# Repoyu klonlayın
-git clone https://github.com/username/ai-chat-app.git
-
-# Proje dizinine gidin
-cd ai-chat-app
-
-# Bağımlılıkları yükleyin
-npm install
-
-# Geliştirme sunucusunu başlatın
-npm run dev
-```
 
 ## Kullanım
 
@@ -83,4 +110,3 @@ MIT
 
 - GitHub: [@username](https://github.com/username)
 - Email: email@example.com
-

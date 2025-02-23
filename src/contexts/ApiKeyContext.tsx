@@ -1,30 +1,35 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { getSecureApiKey, removeSecureApiKey } from '../utils/security';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { getSecureApiKey, removeSecureApiKey, setSecureApiKey } from '../utils/security';
 
 interface ApiKeyContextType {
   apiKey: string | null;
   provider: string;
-  setApiKey: (key: string | null) => void;
+  setApiKey: (key: string) => void;
   setProvider: (provider: string) => void;
   clearApiKey: () => void;
 }
 
 const ApiKeyContext = createContext<ApiKeyContextType | undefined>(undefined);
 
-export const ApiKeyProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [apiKey, setApiKey] = useState<string | null>(null);
+export const ApiKeyProvider = ({ children }: { children: ReactNode }) => {
+  const [apiKey, setApiKeyState] = useState<string | null>(null);
   const [provider, setProvider] = useState<string>('openai');
 
   // Component mount olduğunda güvenli bir şekilde saklanan API key'i al
   useEffect(() => {
     const savedApiKey = getSecureApiKey(provider);
     if (savedApiKey) {
-      setApiKey(savedApiKey);
+      setApiKeyState(savedApiKey);
     }
   }, [provider]);
 
+  const setApiKey = (key: string) => {
+    setSecureApiKey(provider, key);
+    setApiKeyState(key);
+  };
+
   const clearApiKey = () => {
-    setApiKey(null);
+    setApiKeyState(null);
     removeSecureApiKey(provider);
   };
 
@@ -43,7 +48,7 @@ export const ApiKeyProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
 export const useApiKey = () => {
   const context = useContext(ApiKeyContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error('useApiKey must be used within an ApiKeyProvider');
   }
   return context;

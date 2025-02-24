@@ -1,63 +1,67 @@
 import React, { useState } from 'react';
-import { useApiKey } from '../contexts/ApiKeyContext';
-import { validateApiKey } from '../utils/openai';
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
-import { setSecureApiKey, checkRateLimit } from '../utils/security';
+import { Input } from '@/components/ui/input';
+import { useToast } from '@/components/ui/use-toast';
+import { validateApiKey } from '@/utils/openai';
+import { checkRateLimit, setSecureApiKey } from '@/utils/security';
 
 interface ApiKeyFormProps {
-  provider: 'openai' | 'anthropic' | 'deepseek';
+  provider: string;
+  onSubmit: (apiKey: string) => void;
+  onCancel: () => void;
 }
 
-export const ApiKeyForm: React.FC<ApiKeyFormProps> = ({ provider }) => {
-  const [inputKey, setInputKey] = useState('');
+export const ApiKeyForm: React.FC<ApiKeyFormProps> = ({ provider, onSubmit, onCancel }) => {
+  const [apiKey, setApiKey] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { setApiKey } = useApiKey();
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!apiKey) {
+      toast({
+        variant: "destructive",
+        title: "Hata",
+        description: "API anahtarı boş olamaz."
+      });
+      return;
+    }
+
+    if (!checkRateLimit(provider)) {
+      toast({
+        variant: "destructive",
+        title: "Hata",
+        description: "Rate limit aşıldı. Lütfen daha sonra tekrar deneyin."
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      // Rate limit kontrolü
-      if (!checkRateLimit(provider)) {
+      const isValid = await validateApiKey(provider, apiKey);
+      if (!isValid) {
         toast({
           variant: "destructive",
           title: "Hata",
-          description: "Çok fazla istek gönderildi. Lütfen bir süre bekleyin.",
+          description: "Geçersiz API anahtarı."
         });
         return;
       }
 
-      const isValid = await validateApiKey(inputKey, provider);
-      if (isValid) {
-        // API key'i güvenli bir şekilde sakla
-        setSecureApiKey(provider, inputKey);
-        setApiKey(inputKey);
-        
-        toast({
-          title: "Başarılı!",
-          description: "API anahtarı güvenli bir şekilde kaydedildi.",
-        });
-        
-        // Input alanını temizle
-        setInputKey('');
-      } else {
-        toast({
-          variant: "destructive",
-          title: "Hata",
-          description: "Geçersiz API anahtarı. Lütfen kontrol edip tekrar deneyin.",
-        });
-      }
+      await setSecureApiKey(provider, apiKey);
+      toast({
+        title: "Başarılı",
+        description: `${provider} API anahtarı doğrulandı!`
+      });
+      onSubmit(apiKey);
     } catch (error) {
+      console.error('API key validation error:', error);
       toast({
         variant: "destructive",
         title: "Hata",
-        description: "API anahtarı doğrulanırken bir hata oluştu.",
+        description: "API anahtarı doğrulanırken bir hata oluştu."
       });
-      console.error('API key validation error:', error);
     } finally {
       setIsLoading(false);
     }
@@ -65,28 +69,29 @@ export const ApiKeyForm: React.FC<ApiKeyFormProps> = ({ provider }) => {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-2">
-        <Input
-          type="password"
-          value={inputKey}
-          onChange={(e) => setInputKey(e.target.value)}
-          placeholder={`${provider.toUpperCase()} API Anahtarını Girin`}
-          disabled={isLoading}
-          autoComplete="off"
-        />
-        <p className="text-sm text-gray-500">
-          {provider === 'openai' && 'sk-... ile başlayan API anahtarınızı girin'}
-          {provider === 'anthropic' && 'sk-ant-... ile başlayan API anahtarınızı girin'}
-          {provider === 'deepseek' && 'Deepseek API anahtarınızı girin'}
-        </p>
+      <Input
+        type="password"
+        placeholder={`${provider} API Anahtarı`}
+        value={apiKey}
+        onChange={(e) => setApiKey(e.target.value)}
+        className="w-full bg-[#1C1C1E] text-white placeholder-gray-500 border-none rounded-lg p-3 text-sm"
+      />
+      <div className="flex justify-end gap-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
+        >
+          İptal
+        </button>
+        <button
+          type="submit"
+          disabled={isLoading || !apiKey}
+          className="px-4 py-2 bg-[#4B4BF7] text-white rounded-lg text-sm"
+        >
+          {isLoading ? 'Doğrulanıyor...' : 'Kaydet'}
+        </button>
       </div>
-      <Button 
-        type="submit" 
-        className="w-full"
-        disabled={isLoading || !inputKey.trim()}
-      >
-        {isLoading ? "Doğrulanıyor..." : "API Anahtarını Kaydet"}
-      </Button>
     </form>
   );
 }; 

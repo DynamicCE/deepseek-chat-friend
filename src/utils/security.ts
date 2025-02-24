@@ -1,4 +1,6 @@
-import crypto from 'crypto';
+// Web Crypto API kullanarak güvenlik işlemleri
+const encoder = new TextEncoder();
+const decoder = new TextDecoder();
 
 // Test ortamında process.env kullanıyoruz, üretimde import.meta.env
 const getEncryptionKey = () => {
@@ -16,51 +18,172 @@ const getEncryptionKey = () => {
 
 const ENCRYPTION_KEY = getEncryptionKey();
 const SESSION_TIMEOUT = 24 * 60 * 60 * 1000; // 24 saat
-const IV_LENGTH = 16;
 
-export const encryptMessage = (text: string): string => {
-  const iv = crypto.randomBytes(IV_LENGTH);
-  const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);
-  let encrypted = cipher.update(text);
-  encrypted = Buffer.concat([encrypted, cipher.final()]);
-  return iv.toString('hex') + ':' + encrypted.toString('hex');
+export const generateSecretKey = async (): Promise<string> => {
+  const key = await crypto.subtle.generateKey(
+    {
+      name: 'AES-GCM',
+      length: 256
+    },
+    true,
+    ['encrypt', 'decrypt']
+  );
+  
+  const exportedKey = await crypto.subtle.exportKey('raw', key);
+  return btoa(String.fromCharCode(...new Uint8Array(exportedKey)));
 };
 
-export const decryptMessage = (text: string): string => {
-  const textParts = text.split(':');
-  const iv = Buffer.from(textParts.shift()!, 'hex');
-  const encryptedText = Buffer.from(textParts.join(':'), 'hex');
-  const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);
-  let decrypted = decipher.update(encryptedText);
-  decrypted = Buffer.concat([decrypted, decipher.final()]);
-  return decrypted.toString();
-};
-
-export const setSecureApiKey = (provider: string, apiKey: string): void => {
+export const encryptMessage = async (message: string, secretKeyBase64: string): Promise<string> => {
   try {
-    const encryptedKey = encryptMessage(apiKey);
-    sessionStorage.setItem(`${provider}_api_key`, encryptedKey);
+    const secretKey = await crypto.subtle.importKey(
+      'raw',
+      Uint8Array.from(atob(secretKeyBase64), c => c.charCodeAt(0)),
+      'AES-GCM',
+      false,
+      ['encrypt']
+    );
+
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const encodedMessage = encoder.encode(message);
+
+    const encryptedContent = await crypto.subtle.encrypt(
+      {
+        name: 'AES-GCM',
+        iv
+      },
+      secretKey,
+      encodedMessage
+    );
+
+    const encryptedArray = new Uint8Array(encryptedContent);
+    const combined = new Uint8Array(iv.length + encryptedArray.length);
+    combined.set(iv);
+    combined.set(encryptedArray, iv.length);
+
+    return btoa(String.fromCharCode(...combined));
   } catch (error) {
-    console.error('API key kaydetme hatası:', error);
+    console.error('Encryption error:', error);
+    throw new Error('Encryption failed');
   }
 };
 
-export const getSecureApiKey = (provider: string): string | null => {
+export const decryptMessage = async (encryptedData: string, secretKeyBase64: string): Promise<string> => {
+  try {
+    const secretKey = await crypto.subtle.importKey(
+      'raw',
+      Uint8Array.from(atob(secretKeyBase64), c => c.charCodeAt(0)),
+      'AES-GCM',
+      false,
+      ['decrypt']
+    );
+
+    const encryptedArray = Uint8Array.from(atob(encryptedData), c => c.charCodeAt(0));
+    const iv = encryptedArray.slice(0, 12);
+    const encryptedContent = encryptedArray.slice(12);
+
+    const decryptedContent = await crypto.subtle.decrypt(
+      {
+        name: 'AES-GCM',
+        iv
+      },
+      secretKey,
+      encryptedContent
+    );
+
+    return decoder.decode(decryptedContent);
+  } catch (error) {
+    console.error('Decryption error:', error);
+    throw new Error('Decryption failed');
+  }
+};
+
+// API anahtarı formatı doğrulama
+const API_KEY_PATTERNS = {
+  openai: /^sk-[a-zA-Z0-9]{32,}$/,
+  anthropic: /^sk-ant-[a-zA-Z0-9]{32,}$/,
+  deepseek: /^[a-zA-Z0-9]{32,}$/
+};
+
+export const validateApiKeyFormat = (provider: string, apiKey: string): boolean => {
+  const pattern = API_KEY_PATTERNS[provider.toLowerCase() as keyof typeof API_KEY_PATTERNS];
+  return pattern ? pattern.test(apiKey) : false;
+};
+
+// Brute force koruması
+const failedAttempts = new Map<string, { count: number; timestamp: number }>();
+const MAX_FAILED_ATTEMPTS = 5;
+const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 dakika
+
+export const checkFailedAttempts = (provider: string): boolean => {
+  const attempts = failedAttempts.get(provider);
+  if (!attempts) return true;
+
+  const now = Date.now();
+  if (now - attempts.timestamp > LOCKOUT_DURATION) {
+    failedAttempts.delete(provider);
+    return true;
+  }
+
+  return attempts.count < MAX_FAILED_ATTEMPTS;
+};
+
+export const recordFailedAttempt = (provider: string): void => {
+  const attempts = failedAttempts.get(provider) || { count: 0, timestamp: Date.now() };
+  attempts.count++;
+  attempts.timestamp = Date.now();
+  failedAttempts.set(provider, attempts);
+};
+
+// Güvenli API key yönetimi için ek kontroller
+export const setSecureApiKey = async (provider: string, apiKey: string): Promise<void> => {
+  try {
+    if (!validateApiKeyFormat(provider, apiKey)) {
+      throw new Error('Geçersiz API anahtarı formatı');
+    }
+
+    if (!checkFailedAttempts(provider)) {
+      throw new Error('Çok fazla başarısız deneme. Lütfen daha sonra tekrar deneyin.');
+    }
+
+    const secretKey = await generateSecretKey();
+    const encryptedKey = await encryptMessage(apiKey, secretKey);
+    sessionStorage.setItem(`${provider}_api_key`, encryptedKey);
+    sessionStorage.setItem(`${provider}_secret_key`, secretKey);
+    sessionStorage.setItem(`${provider}_expiry`, (Date.now() + SESSION_TIMEOUT).toString());
+  } catch (error) {
+    recordFailedAttempt(provider);
+    console.error('API key kaydetme hatası:', error);
+    throw error;
+  }
+};
+
+export const getSecureApiKey = async (provider: string): Promise<string | null> => {
   try {
     const encryptedKey = sessionStorage.getItem(`${provider}_api_key`);
-    return encryptedKey ? decryptMessage(encryptedKey) : null;
+    const secretKey = sessionStorage.getItem(`${provider}_secret_key`);
+    const expiry = sessionStorage.getItem(`${provider}_expiry`);
+
+    if (!encryptedKey || !secretKey || !expiry) {
+      return null;
+    }
+
+    // Süre kontrolü
+    if (Date.now() > parseInt(expiry)) {
+      removeSecureApiKey(provider);
+      return null;
+    }
+
+    return await decryptMessage(encryptedKey, secretKey);
   } catch (error) {
-    console.error('API key okuma hatası:', error);
+    console.error('API key alma hatası:', error);
     return null;
   }
 };
 
 export const removeSecureApiKey = (provider: string): void => {
-  try {
-    sessionStorage.removeItem(`${provider}_api_key`);
-  } catch (error) {
-    console.error('API key silme hatası:', error);
-  }
+  sessionStorage.removeItem(`${provider}_api_key`);
+  sessionStorage.removeItem(`${provider}_secret_key`);
+  sessionStorage.removeItem(`${provider}_expiry`);
 };
 
 // Rate limiting için basit bir implementasyon

@@ -4,7 +4,7 @@ import { getSecureApiKey, removeSecureApiKey, setSecureApiKey } from '../utils/s
 interface ApiKeyContextType {
   apiKey: string | null;
   provider: string;
-  setApiKey: (key: string) => void;
+  setApiKey: (key: string) => Promise<void>;
   setProvider: (provider: string) => void;
   clearApiKey: () => void;
 }
@@ -17,14 +17,17 @@ export const ApiKeyProvider = ({ children }: { children: ReactNode }) => {
 
   // Component mount olduğunda güvenli bir şekilde saklanan API key'i al
   useEffect(() => {
-    const savedApiKey = getSecureApiKey(provider);
-    if (savedApiKey) {
-      setApiKeyState(savedApiKey);
-    }
+    const loadApiKey = async () => {
+      const savedApiKey = await getSecureApiKey(provider);
+      if (savedApiKey) {
+        setApiKeyState(savedApiKey);
+      }
+    };
+    loadApiKey();
   }, [provider]);
 
-  const setApiKey = (key: string) => {
-    setSecureApiKey(provider, key);
+  const setApiKey = async (key: string) => {
+    await setSecureApiKey(provider, key);
     setApiKeyState(key);
   };
 

@@ -9,7 +9,7 @@ const API_ENDPOINTS = {
 };
 
 const MODELS = {
-  openrouter: 'deepseek/deepseek-33b-chat',
+  openrouter: 'deepseek/deepseek-r1:free',
   openai: 'gpt-3.5-turbo',
   anthropic: 'claude-2'
 };
@@ -105,7 +105,9 @@ const formatRequestBody = (provider: Provider, content: string) => {
         max_tokens: 1000,
         stream: false,
         transforms: ["middle-out"],
-        route: "fallback"
+        route: "fallback",
+        safe_mode: false,
+        force_model: true
       };
     default:
       return {

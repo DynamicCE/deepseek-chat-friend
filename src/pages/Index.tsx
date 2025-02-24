@@ -18,7 +18,7 @@ export default function Index() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Event handler'ları için useCallback
-  const handleProviderChange = useCallback((newProvider: string) => {
+  const handleProviderChange = useCallback((newProvider: 'OpenRouter' | 'ChatGPT' | 'Claude') => {
     setProvider(newProvider);
     setError(null);
   }, [setProvider]);
@@ -36,7 +36,9 @@ export default function Index() {
       await sendChatMessage(
         'Test message',
         key,
-        provider.toLowerCase() as 'deepseek' | 'openai' | 'anthropic'
+        provider.toLowerCase() === 'openrouter' ? 'openrouter' :
+        provider.toLowerCase() === 'chatgpt' ? 'openai' :
+        'anthropic'
       );
 
       await setApiKey(key);
@@ -65,7 +67,9 @@ export default function Index() {
       const response = await sendChatMessage(
         message,
         apiKey,
-        provider.toLowerCase() as 'deepseek' | 'openai' | 'anthropic'
+        provider.toLowerCase() === 'openrouter' ? 'openrouter' :
+        provider.toLowerCase() === 'chatgpt' ? 'openai' :
+        'anthropic'
       );
 
       setMessages(prev => [...prev, { role: 'assistant', content: response }]);
@@ -154,12 +158,12 @@ export default function Index() {
 
         <div className="flex items-center justify-center gap-4 mb-8">
           <button
-            onClick={() => handleProviderChange('DeepSeek')}
+            onClick={() => handleProviderChange('OpenRouter')}
             className={`p-2 rounded-lg transition-all ${
-              provider === 'DeepSeek' ? 'bg-[#2C2C2E] scale-110' : 'opacity-50 hover:opacity-75'
+              provider === 'OpenRouter' ? 'bg-[#2C2C2E] scale-110' : 'opacity-50 hover:opacity-75'
             }`}
           >
-            <img src="/deepseek-color.svg" alt="DeepSeek" className="w-8 h-8" />
+            <img src="/deepseek-color.svg" alt="OpenRouter" className="w-8 h-8" />
           </button>
           <button
             onClick={() => handleProviderChange('ChatGPT')}

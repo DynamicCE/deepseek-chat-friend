@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
-import { validateApiKey } from '@/utils/openai';
-import { checkRateLimit, setSecureApiKey } from '@/utils/security';
+import { validateApiKey } from '@/utils/chat';
+import { setSecureApiKey } from '@/utils/security';
 
 interface ApiKeyFormProps {
   provider: string;
@@ -27,24 +27,20 @@ export const ApiKeyForm: React.FC<ApiKeyFormProps> = ({ provider, onSubmit, onCa
       return;
     }
 
-    if (!checkRateLimit(provider)) {
-      toast({
-        variant: "destructive",
-        title: "Hata",
-        description: "Rate limit aşıldı. Lütfen daha sonra tekrar deneyin."
-      });
-      return;
-    }
-
     setIsLoading(true);
 
     try {
-      const isValid = await validateApiKey(provider, apiKey);
+      // API key'i test et
+      const isValid = await validateApiKey(
+        provider.toLowerCase() as 'deepseek' | 'openai' | 'anthropic',
+        apiKey
+      );
+
       if (!isValid) {
         toast({
           variant: "destructive",
           title: "Hata",
-          description: "Geçersiz API anahtarı."
+          description: "API anahtarı geçersiz veya bir hata oluştu."
         });
         return;
       }

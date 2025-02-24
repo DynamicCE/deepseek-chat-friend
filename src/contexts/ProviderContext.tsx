@@ -1,14 +1,14 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
 interface ProviderContextType {
-  provider: string;
-  setProvider: (provider: string) => void;
+  provider: 'OpenRouter' | 'ChatGPT' | 'Claude';
+  setProvider: (provider: 'OpenRouter' | 'ChatGPT' | 'Claude') => void;
 }
 
 const ProviderContext = createContext<ProviderContextType | undefined>(undefined);
 
 export const ProviderProvider = ({ children }: { children: ReactNode }) => {
-  const [provider, setProvider] = useState<string>('DeepSeek');
+  const [provider, setProvider] = useState<'OpenRouter' | 'ChatGPT' | 'Claude'>('OpenRouter');
 
   return (
     <ProviderContext.Provider value={{ provider, setProvider }}>

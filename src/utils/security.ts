@@ -97,16 +97,9 @@ export const decryptMessage = async (encryptedData: string, secretKeyBase64: str
   }
 };
 
-// API anahtarı formatı doğrulama
-const API_KEY_PATTERNS = {
-  openai: /^sk-[a-zA-Z0-9]{32,}$/,
-  anthropic: /^sk-ant-[a-zA-Z0-9]{32,}$/,
-  deepseek: /^[a-zA-Z0-9]{32,}$/
-};
-
+// API key doğrulama artık test isteği ile yapılacak
 export const validateApiKeyFormat = (provider: string, apiKey: string): boolean => {
-  const pattern = API_KEY_PATTERNS[provider.toLowerCase() as keyof typeof API_KEY_PATTERNS];
-  return pattern ? pattern.test(apiKey) : false;
+  return apiKey.length > 0; // Sadece boş olup olmadığını kontrol et
 };
 
 // Brute force koruması

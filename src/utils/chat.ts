@@ -98,9 +98,15 @@ const formatRequestBody = (provider: Provider, content: string) => {
         max_tokens: 1000
       };
     case 'openrouter':
+      const formattedContent = `Ben bir yazılım geliştiricisiyim ve şu konuda yardıma ihtiyacım var:
+
+${content}
+
+Lütfen detaylı ve net bir şekilde açıklar mısın? Önemli noktaları vurgulayarak ve gerektiğinde kod örnekleri vererek yanıtla.`;
+
       return {
         model: MODELS[provider],
-        messages: [{ role: 'user', content }],
+        messages: [{ role: 'user', content: formattedContent }],
         temperature: 0.7,
         max_tokens: 1000,
         stream: false,
@@ -125,7 +131,34 @@ const parseResponse = async (provider: Provider, response: Response) => {
   }
 
   const data = await response.json();
-  return data.choices[0].message.content;
+  const content = data.choices[0].message.content;
+
+  if (provider === 'openrouter') {
+    // Markdown formatını düzenle
+    const sections = content.split('\n\n');
+    const formattedSections = sections.map((section: string) => {
+      // Başlıkları düzenle
+      if (section.startsWith('#')) {
+        return `\n${section}\n`;
+      }
+      // Madde işaretlerini düzenle
+      if (section.includes('- ')) {
+        return section.split('\n').map((line: string) => 
+          line.trim().startsWith('-') ? line : `- ${line}`
+        ).join('\n');
+      }
+      // Kod bloklarını düzenle
+      if (section.includes('```')) {
+        return `\n${section}\n`;
+      }
+      // Normal metni düzenle
+      return section.split('\n').map((line: string) => `${line}\n`).join('');
+    });
+
+    return formattedSections.join('\n');
+  }
+
+  return content;
 };
 
 export const sendChatMessage = async (

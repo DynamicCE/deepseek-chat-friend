@@ -128,14 +128,20 @@ export const recordFailedAttempt = (provider: string): void => {
 };
 
 // Güvenli API key yönetimi için ek kontroller
-export const setSecureApiKey = async (provider: string, apiKey: string): Promise<void> => {
+export const setSecureApiKey = async (provider: string, apiKey: string): Promise<{ success: boolean; message: string }> => {
   try {
     if (!validateApiKeyFormat(provider, apiKey)) {
-      throw new Error('Geçersiz API anahtarı formatı');
+      return {
+        success: false,
+        message: 'Geçersiz API anahtarı formatı'
+      };
     }
 
     if (!checkFailedAttempts(provider)) {
-      throw new Error('Çok fazla başarısız deneme. Lütfen daha sonra tekrar deneyin.');
+      return {
+        success: false,
+        message: 'Çok fazla başarısız deneme. Lütfen daha sonra tekrar deneyin.'
+      };
     }
 
     const secretKey = await generateSecretKey();
@@ -143,10 +149,18 @@ export const setSecureApiKey = async (provider: string, apiKey: string): Promise
     sessionStorage.setItem(`${provider}_api_key`, encryptedKey);
     sessionStorage.setItem(`${provider}_secret_key`, secretKey);
     sessionStorage.setItem(`${provider}_expiry`, (Date.now() + SESSION_TIMEOUT).toString());
+
+    return {
+      success: true,
+      message: 'API anahtarı başarıyla kaydedildi. Bu oturum için kullanabilirsiniz.'
+    };
   } catch (error) {
     recordFailedAttempt(provider);
     console.error('API key kaydetme hatası:', error);
-    throw error;
+    return {
+      success: false,
+      message: 'API anahtarı kaydedilirken bir hata oluştu.'
+    };
   }
 };
 
